@@ -3,20 +3,19 @@ name = "vanity_search"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-name = "vanity_search"
-crate-type = ["cdylib"]
-
 [dependencies]
-pyo3 = { version = "0.19", features = ["extension-module"] }
-rayon = "1.7"
+rayon = "1.8"
 ed25519-dalek = "1.0"
-bs58 = "0.5"
 rand = "0.7"
+bs58 = "0.5"
 parking_lot = "0.12"
+ctrlc = "3.4"
 
 [profile.release]
-lto = true
+lto = "fat"
 codegen-units = 1
 panic = "abort"
 opt-level = 3
+strip = true
+debug = false
+overflow-checks = false
