@@ -24,6 +24,8 @@ fn main() {
     let results = Arc::new(parking_lot::Mutex::new(Vec::with_capacity(10)));
     let found_count = Arc::new(AtomicUsize::new(0));
     let attempts_count = Arc::new(AtomicUsize::new(0));
+    let last_success_check = Arc::new(parking_lot::Mutex::new(Instant::now()));
+    let last_success_count = Arc::new(AtomicUsize::new(0));
     
     ctrlc::set_handler(move || {
         println!("\nStopping...");
@@ -78,6 +80,17 @@ fn main() {
                 print!("\rTried {} addresses... ({:.0}/sec)", 
                     total_attempts, total_attempts as f64 / elapsed);
                 io::stdout().flush().unwrap();
+
+                let mut last_check = last_success_check.lock();
+                if last_check.elapsed().as_secs() >= 300 { // 5 minutes = 300 seconds
+                    let current_found = found_count.load(Ordering::Relaxed);
+                    let success_since_last = current_found - last_success_count.load(Ordering::Relaxed);
+                    println!("\nLast 5 minutes: {} successful keypairs ({:.2} per minute)", 
+                        success_since_last, success_since_last as f64 / 5.0);
+                    
+                    last_success_count.store(current_found, Ordering::Relaxed);
+                    *last_check = Instant::now();
+                }
             }
         }
         
