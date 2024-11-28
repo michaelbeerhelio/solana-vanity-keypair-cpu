@@ -38,7 +38,7 @@ fn main() {
         let mut pubkey_bytes = [0u8; 32];
         let mut local_attempts = 0;
         
-        'outer: loop {
+        loop {
             for _ in 0..BATCH_PER_THREAD {
                 let keypair = Keypair::generate(&mut csprng);
                 pubkey_bytes.copy_from_slice(&keypair.public.to_bytes());
@@ -60,16 +60,7 @@ fn main() {
                 println!("Phantom private key: {}", phantom_key);
                 
                 local_results.push((pubkey_str, secret_key));
-                
-                if found_count.fetch_add(1, Ordering::Relaxed) >= 9 {
-                    attempts_count.fetch_add(local_attempts, Ordering::Relaxed);
-                    break 'outer;
-                }
-            }
-            
-            if found_count.load(Ordering::Relaxed) >= 9 {
-                attempts_count.fetch_add(local_attempts, Ordering::Relaxed);
-                break;
+                found_count.fetch_add(1, Ordering::Relaxed);
             }
 
             attempts_count.fetch_add(BATCH_PER_THREAD, Ordering::Relaxed);
