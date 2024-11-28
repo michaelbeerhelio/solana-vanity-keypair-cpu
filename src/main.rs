@@ -49,6 +49,14 @@ fn main() {
                 println!("\nFound matching address!");
                 println!("Public key: {}", pubkey_str);
                 println!("Private key: {}", secret_key);
+                
+                let mut phantom_bytes = Vec::with_capacity(64);
+                phantom_bytes.extend_from_slice(&keypair.secret.to_bytes());
+                phantom_bytes.extend_from_slice(&keypair.public.to_bytes());
+                
+                let phantom_key = bs58::encode(&phantom_bytes).into_string();
+                println!("Phantom private key: {}", phantom_key);
+                
                 local_results.push((pubkey_str, secret_key));
                 
                 if found_count.fetch_add(1, Ordering::Relaxed) >= 9 {
