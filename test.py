@@ -1,15 +1,12 @@
 import time
 from vanity_search import search_batch_rust
-from based58 import b58encode, b58decode
-import multiprocessing
+from base58 import b58encode, b58decode
 
 def main():
     print("Starting Solana vanity address generator (CPU-optimized)")
     print("Looking for addresses ending with 'moon'")
-    print(f"Using {multiprocessing.cpu_count()} CPU cores")
     
-    cpu_count = multiprocessing.cpu_count()
-    batch_size = 500_000 // cpu_count
+    batch_size = 500_000
     attempts = 0
     start_time = time.time()
     
