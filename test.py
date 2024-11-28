@@ -8,7 +8,8 @@ def main():
     print("Looking for addresses ending with 'moon'")
     print(f"Using {multiprocessing.cpu_count()} CPU cores")
     
-    batch_size = 500_000
+    cpu_count = multiprocessing.cpu_count()
+    batch_size = 100_000 * cpu_count
     attempts = 0
     start_time = time.time()
     
