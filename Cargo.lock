@@ -1375,11 +1375,14 @@ checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 name = "vanity_search"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "bs58",
  "ctrlc",
  "ed25519-dalek",
+ "openssl",
  "parking_lot",
  "rand",
+ "rand_core",
  "rayon",
  "reqwest",
  "serde_json",

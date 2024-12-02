@@ -8,12 +8,67 @@ use std::io::{self, Write};
 use reqwest::Client;
 use serde_json::json;
 use tokio::sync::mpsc;
+use openssl::symm::{Cipher, Crypter, Mode};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 
 const BATCH_PER_THREAD: usize = 10_000;
 const TARGET: &[u8] = b"moon";
-const API_ENDPOINT: &str = "fake";
+const API_ENDPOINT: &str = "https://api.dev.mintlp.io/v1/mint-addresses";
 const BEARER_TOKEN: &str = "fake";
+const SECRET_KEY: &str = "authority-secret";
 const BATCH_SIZE: usize = 10;
+
+fn encrypt_aes(data: &str, secret: &str) -> String {
+    let salt = rand::random::<[u8; 8]>();
+    let cipher = Cipher::aes_256_cbc();
+    
+    // Generate key and IV using OpenSSL's EVP_BytesToKey
+    let key_iv = openssl::pkcs5::bytes_to_key(
+        cipher,
+        openssl::hash::MessageDigest::md5(),
+        secret.as_bytes(),
+        Some(&salt),
+        1
+    ).unwrap();
+    
+    let iv = key_iv.iv.as_ref().expect("IV must be present for CBC mode");
+    
+    // Create encrypter
+    let mut encrypter = Crypter::new(
+        cipher,
+        Mode::Encrypt,
+        key_iv.key.as_ref(),
+        Some(iv)
+    ).unwrap();
+    encrypter.pad(true);
+    
+    // Encrypt
+    let mut ciphertext = vec![0; data.len() + cipher.block_size()];
+    let count = encrypter.update(data.as_bytes(), &mut ciphertext).unwrap();
+    let rest = encrypter.finalize(&mut ciphertext[count..]).unwrap();
+    ciphertext.truncate(count + rest);
+    
+    // Format as CryptoJS does: "Salted__" + salt + ciphertext
+    let mut result = Vec::with_capacity(16 + ciphertext.len());
+    result.extend_from_slice(b"Salted__");
+    result.extend_from_slice(&salt);
+    result.extend_from_slice(&ciphertext);
+    
+    BASE64.encode(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_encryption() {
+        let encrypted = encrypt_aes("test", "secret");
+        println!("Encrypted value: {}", encrypted);
+        assert!(encrypted.len() > 0);
+        assert!(BASE64.decode(&encrypted).is_ok());
+    }
+}
 
 #[inline(always)]
 fn check_suffix(bytes: &[u8]) -> bool {
@@ -44,8 +99,13 @@ async fn main() {
             batch.push(key);
             
             if batch.len() >= BATCH_SIZE {
+                // Encrypt each address
+                let encrypted_addresses: Vec<String> = batch.iter()
+                    .map(|addr: &String| encrypt_aes(addr, SECRET_KEY))
+                    .collect();
+
                 let payload = json!({
-                    "mintAddresses": &batch,
+                    "encryptedSecretKeys": encrypted_addresses,
                     "blockchainSymbol": "SOL"
                 });
 
