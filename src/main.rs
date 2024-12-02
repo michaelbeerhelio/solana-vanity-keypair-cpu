@@ -14,9 +14,9 @@ use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 const BATCH_PER_THREAD: usize = 10_000;
 const TARGET: &[u8] = b"moon";
 const API_ENDPOINT: &str = "https://api.dev.mintlp.io/v1/mint-addresses";
-const BEARER_TOKEN: &str = "fake";
+const BEARER_TOKEN: &str = "add-your-token-here";
 const SECRET_KEY: &str = "authority-secret";
-const BATCH_SIZE: usize = 10;
+const BATCH_SIZE: usize = 5;
 
 fn encrypt_aes(data: &str, secret: &str) -> String {
     let salt = rand::random::<[u8; 8]>();
@@ -57,19 +57,6 @@ fn encrypt_aes(data: &str, secret: &str) -> String {
     BASE64.encode(result)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_encryption() {
-        let encrypted = encrypt_aes("test", "secret");
-        println!("Encrypted value: {}", encrypted);
-        assert!(encrypted.len() > 0);
-        assert!(BASE64.decode(&encrypted).is_ok());
-    }
-}
-
 #[inline(always)]
 fn check_suffix(bytes: &[u8]) -> bool {
     if bytes.len() < TARGET.len() { return false; }
@@ -85,13 +72,11 @@ async fn main() {
     let num_threads = rayon::current_num_threads();
     let found_count = Arc::new(AtomicUsize::new(0));
     let attempts_count = Arc::new(AtomicUsize::new(0));
-    let last_success_check = Arc::new(parking_lot::Mutex::new(Instant::now()));
-    let last_success_count = Arc::new(AtomicUsize::new(0));
     
     let (tx, mut rx) = mpsc::channel(100);
     
     // Spawn API handler task
-    let api_handle = tokio::spawn(async move {
+    let _api_handle = tokio::spawn(async move {
         let mut batch = Vec::with_capacity(BATCH_SIZE);
         let client = Client::new();
         
@@ -131,11 +116,6 @@ async fn main() {
             }
         }
     });
-
-    ctrlc::set_handler(move || {
-        println!("\nStopping...");
-        std::process::exit(0);
-    }).expect("Error setting Ctrl-C handler");
 
     let tx = Arc::new(parking_lot::Mutex::new(tx));
 
@@ -181,27 +161,7 @@ async fn main() {
                 print!("\rTried {} addresses... ({:.0}/sec)", 
                     total_attempts, total_attempts as f64 / elapsed);
                 io::stdout().flush().unwrap();
-
-                let mut last_check = last_success_check.lock();
-                if last_check.elapsed().as_secs() >= 300 {
-                    let current_found = found_count.load(Ordering::Relaxed);
-                    let success_since_last = current_found - last_success_count.load(Ordering::Relaxed);
-                    println!("\nLast 5 minutes: {} successful keypairs ({:.2} per minute)", 
-                        success_since_last, success_since_last as f64 / 5.0);
-                    
-                    last_success_count.store(current_found, Ordering::Relaxed);
-                    *last_check = Instant::now();
-                }
             }
         }
     });
-
-    let total_attempts = attempts_count.load(Ordering::Relaxed);
-    let elapsed = start_time.elapsed().as_secs_f64();
-    println!("\n\nFinished!");
-    println!("Total attempts: {}", total_attempts);
-    println!("Average speed: {:.0} addresses/sec", total_attempts as f64 / elapsed);
-    
-    drop(tx);
-    api_handle.await.unwrap();
 } 
