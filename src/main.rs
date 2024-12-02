@@ -10,17 +10,15 @@ use serde_json::json;
 use tokio::sync::mpsc;
 
 const BATCH_PER_THREAD: usize = 10_000;
-const TARGET1: &[u8] = b"martin";
-const TARGET2: &[u8] = b"helio";
+const TARGET: &[u8] = b"moon";
 const API_ENDPOINT: &str = "fake";
 const BEARER_TOKEN: &str = "fake";
-const BATCH_SIZE: usize = 2;
+const BATCH_SIZE: usize = 10;
 
 #[inline(always)]
 fn check_suffix(bytes: &[u8]) -> bool {
-    if bytes.len() < TARGET1.len() { return false; }
-    bytes[..TARGET1.len()] == *TARGET1 || 
-    bytes[..TARGET2.len()] == *TARGET2
+    if bytes.len() < TARGET.len() { return false; }
+    bytes[(bytes.len() - TARGET.len())..] == *TARGET
 }
 
 #[tokio::main]
@@ -30,12 +28,10 @@ async fn main() {
     
     let start_time = Instant::now();
     let num_threads = rayon::current_num_threads();
-    let results = Arc::new(parking_lot::Mutex::new(Vec::<(String, String)>::with_capacity(10)));
     let found_count = Arc::new(AtomicUsize::new(0));
     let attempts_count = Arc::new(AtomicUsize::new(0));
     let last_success_check = Arc::new(parking_lot::Mutex::new(Instant::now()));
     let last_success_count = Arc::new(AtomicUsize::new(0));
-    let client = Client::new();
     
     let (tx, mut rx) = mpsc::channel(100);
     
